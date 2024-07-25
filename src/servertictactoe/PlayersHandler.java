@@ -1,16 +1,18 @@
 package servertictactoe;
 
-
-
+import database.TicTacToeDataBase;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.Socket;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
-import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.json.JSONObject;
 
 public class PlayersHandler extends Thread {
 
@@ -23,7 +25,7 @@ public class PlayersHandler extends Thread {
     private StringTokenizer token;
 
     public PlayersHandler(Socket socket) {
-        server = Server.getServer();//single tone obj
+        server = Server.getServer(); // Singleton object
         try {
             br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             ps = new PrintStream(socket.getOutputStream());
@@ -43,8 +45,9 @@ public class PlayersHandler extends Thread {
         while (currentSocket.isConnected()) {
             try {
                 clientData = br.readLine();
-                System.out.println(clientData);
+                System.out.println("Received: " + clientData);
                 if (clientData != null) {
+                    // Tokenize using "####" as delimiter
                     token = new StringTokenizer(clientData, "####");
                     if (token.hasMoreTokens()) {
                         query = token.nextToken();
@@ -54,8 +57,7 @@ public class PlayersHandler extends Thread {
                                 System.out.println("SignIn");
                                 break;
                             case "SignUp":
-                                ps.println("SignUp response");
-                                System.out.println("SignUp");
+                                handleSignUp(token.nextToken());
                                 break;
                             case "playerlist":
                                 ps.println("playerlist response");
@@ -99,7 +101,7 @@ public class PlayersHandler extends Thread {
                                 break;
                             default:
                                 ps.println("Unknown query");
-                                System.out.println("Unknown query");
+                                System.out.println("Unknown query: " + query);
                                 break;
                         }
                     } else {
@@ -114,6 +116,35 @@ public class PlayersHandler extends Thread {
         }
         if (currentSocket.isClosed()) {
             System.out.println("Connection closed");
+        }
+    }
+
+    private void handleSignUp(String jsonData) {
+        try {
+            // Parse the JSON data
+            JSONObject jsonObject = new JSONObject(jsonData);
+            String username = jsonObject.getString("username");
+            String email = jsonObject.getString("email");
+            String password = jsonObject.getString("password");
+
+            // Print for debugging
+            System.out.println("SignUp Request - Username: " + username + ", Email: " + email);
+
+            // Use the singleton instance of TicTacToeDataBase
+            TicTacToeDataBase tic = TicTacToeDataBase.getInstance();
+
+            // Sign up the user
+            tic.SignUp(email, username, password);
+
+            // Send a response to the client
+            ps.println("SignUp response");
+            System.out.println("SignUp");
+
+        } catch (SQLException ex) {
+            Logger.getLogger(PlayersHandler.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (org.json.JSONException ex) {
+            ps.println("Invalid JSON data");
+            System.out.println("Invalid JSON data");
         }
     }
 }
