@@ -14,6 +14,7 @@ import org.json.JSONException;
 
 public class PlayersHandler implements Runnable {
 
+
     private Socket socket;
     private BufferedReader input;
     private PrintWriter output;
@@ -75,5 +76,10 @@ public class PlayersHandler implements Runnable {
         JSONObject response = new JSONObject();
         response.put("activeUsers", userList.toString());
         output.println(response.toString());
+
     }
+    
 }
+
+
+
