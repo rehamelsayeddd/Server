@@ -32,8 +32,8 @@ public class PlayersHandler implements Runnable {
         this.opponent = opponent;
         if (this.opponent != null) {
             try {
-                this.playerSymbol = "X";
-                opponent.playerSymbol = "O";
+                this.playerSymbol = "O";
+                opponent.playerSymbol = "X";
                 // Notify players of their symbols
                 this.sendMessage(new JSONObject().put("query", "SYMBOL").put("symbol", this.playerSymbol).toString());
                 this.opponent.sendMessage(new JSONObject().put("query", "SYMBOL").put("symbol", this.opponent.playerSymbol).toString());
@@ -95,6 +95,17 @@ public class PlayersHandler implements Runnable {
             }
         }
     }
+    // Pseudocode for sending messages from the server
+/*private void handleEndGame(boolean xWins, boolean oWins) {
+    if (xWins) {
+        sendToClientX("{\"query\": \"WIN\"}");
+        sendToClientO("{\"query\": \"LOSE\"}");
+    } else if (oWins) {
+        sendToClientX("{\"query\": \"LOSE\"}");
+        sendToClientO("{\"query\": \"WIN\"}");
+    }
+}*/
+
 
     public void sendMessage(String message) {
         out.println(message);
