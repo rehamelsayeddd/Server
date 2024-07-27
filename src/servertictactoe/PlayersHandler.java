@@ -1,115 +1,68 @@
 package servertictactoe;
 
-import database.TicTacToeDataBase;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.json.JSONException;
-import org.json.JSONObject;
 
-public class PlayersHandler extends Thread {
+public class PlayersHandler implements Runnable {
 
-    private Server server;
-    private BufferedReader br;
-    private PrintStream ps;
-    private Socket currentSocket;
-    private static List<PlayersHandler> PlayersList = new ArrayList<>();
-    private String clientData, query;
-    private StringTokenizer token;
+    private final Socket socket;
+    private final PrintWriter out;
+    private final BufferedReader in;
+    private final Server server;
+    private final int playerId;
+    private final String playerSymbol;
 
-    public PlayersHandler(Socket socket) {
-        server = Server.getServer(); // Singleton object
-        try {
-            br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            ps = new PrintStream(socket.getOutputStream());
-            currentSocket = socket;
-            this.start();
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            try {
-                socket.close();
-            } catch (IOException ex1) {
-                ex1.printStackTrace();
-            }
-        }
+    public PlayersHandler(Socket socket, int playerId, Server server) throws IOException {
+        this.socket = socket;
+        this.server = server;
+        this.playerId = playerId;
+        this.out = new PrintWriter(socket.getOutputStream(), true);
+        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        // Determine player symbol based on playerId
+        this.playerSymbol = (playerId == 1) ? "X" : "O"; // Player 1 is "X", Player 2 is "O"
     }
 
+    @Override
     public void run() {
-        while (currentSocket.isConnected()) {
-            try {
-                clientData = br.readLine();
-                System.out.println("Received from client: " + clientData);
-                if (clientData != null) {
-                    JSONObject json = new JSONObject(clientData);
-                    String query = json.optString("query");
-                    switch (query) {
-                        
-                         case "SignUp":
-                                handleSignUp(clientData);
-                                break;
-                        
-                        default:
-                            JSONObject unknownQueryResponse = new JSONObject();
-                            unknownQueryResponse.put("response", "Unknown query");
-                            ps.println(unknownQueryResponse.toString());
-                            System.out.println("Unknown query");
-                            break;
+        String line;
+        try {
+            while ((line = in.readLine()) != null) {
+                System.out.println("Received from player " + playerId + ": " + line);
+                JSONObject json = new JSONObject(line);
+                String query = json.optString("query");
+                if ("MOVE".equals(query)) {
+                    int index = json.getInt("index");
+                    String player = json.getString("player");
+                    
+                    // Broadcast the move to other player
+                    server.broadcastMove(index, player);
+                    
+                    // Ensure Player 2 responds with "O"
+                    if (playerId == 1 && player.equals("X")) {
+                        // This ensures Player 2 always responds with "O"
+                        server.broadcastMove(index, "O");
                     }
                 }
+            }
+        } catch (IOException | org.json.JSONException ex) {
+            Logger.getLogger(PlayersHandler.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                socket.close();
             } catch (IOException ex) {
-                System.out.println("Closing connection");
-                try {
-                    currentSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                break;
-            } catch (JSONException j) {
-                j.printStackTrace();
+                Logger.getLogger(PlayersHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-       
     }
 
-    private void handleSignUp(String jsonData) {
-        try {
-            // Parse the JSON data
-            JSONObject jsonObject = new JSONObject(jsonData);
-            String username = jsonObject.getString("username");
-            String email = jsonObject.getString("email");
-            String password = jsonObject.getString("password");
-
-            System.out.println("SignUp Request - Username: " + username + ", Email: " + email);
-            TicTacToeDataBase tic = TicTacToeDataBase.getInstance();
-            tic.SignUp(email, username, password);
-
-            // Print for debugging
-            System.out.println("SignUp Request - Username: " + username + ", Email: " + email);
-
-            // Use the singleton instance of TicTacToeDataBase
-            TicTacToeDataBase tico = TicTacToeDataBase.getInstance();
-
-            // Sign up the user
-            tic.SignUp(email, username, password);
-
-            // Send a response to the client
-
-            ps.println("SignUp response");
-            System.out.println("SignUp");
-
-        } catch (SQLException ex) {
-            Logger.getLogger(PlayersHandler.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (org.json.JSONException ex) {
-            ps.println("Invalid JSON data");
-            System.out.println("Invalid JSON data");
-        }
+    public void sendMessage(String message) {
+        out.println(message);
     }
 }
