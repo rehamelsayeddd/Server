@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.json.JSONException;
 
 public class PlayersHandler implements Runnable {
 
@@ -16,17 +17,45 @@ public class PlayersHandler implements Runnable {
     private final PrintWriter out;
     private final BufferedReader in;
     private final Server server;
-    private final int playerId;
-    private final String playerSymbol;
+    private PlayersHandler opponent;
+    private String playerSymbol;
+    private boolean myTurn;
 
-    public PlayersHandler(Socket socket, int playerId, Server server) throws IOException {
+    public PlayersHandler(Socket socket, Server server) throws IOException {
         this.socket = socket;
         this.server = server;
-        this.playerId = playerId;
         this.out = new PrintWriter(socket.getOutputStream(), true);
         this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        // Determine player symbol based on playerId
-        this.playerSymbol = (playerId == 1) ? "X" : "O"; // Player 1 is "X", Player 2 is "O"
+    }
+
+    public void setOpponent(PlayersHandler opponent) {
+        this.opponent = opponent;
+        if (this.opponent != null) {
+            try {
+                this.playerSymbol = "X";
+                opponent.playerSymbol = "O";
+                // Notify players of their symbols
+                this.sendMessage(new JSONObject().put("query", "SYMBOL").put("symbol", this.playerSymbol).toString());
+                this.opponent.sendMessage(new JSONObject().put("query", "SYMBOL").put("symbol", this.opponent.playerSymbol).toString());
+            } catch (JSONException ex) {
+                Logger.getLogger(PlayersHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+    private void closeSocket(Socket socket) {
+    try {
+        socket.close();
+    } catch (IOException ex) {
+        Logger.getLogger(PlayersHandler.class.getName()).log(Level.SEVERE, null, ex);
+    }
+}
+
+    public String getPlayerSymbol() {
+        return playerSymbol;
+    }
+
+    public PlayersHandler getOpponent() {
+        return opponent;
     }
 
     @Override
@@ -34,21 +63,26 @@ public class PlayersHandler implements Runnable {
         String line;
         try {
             while ((line = in.readLine()) != null) {
-                System.out.println("Received from player " + playerId + ": " + line);
+                System.out.println("Received from player: " + line);
                 JSONObject json = new JSONObject(line);
                 String query = json.optString("query");
-                if ("MOVE".equals(query)) {
-                    int index = json.getInt("index");
-                    String player = json.getString("player");
-                    
-                    // Broadcast the move to other player
-                    server.broadcastMove(index, player);
-                    
-                    // Ensure Player 2 responds with "O"
-                    if (playerId == 1 && player.equals("X")) {
-                        // This ensures Player 2 always responds with "O"
-                        server.broadcastMove(index, "O");
-                    }
+                switch (query) {
+                    case "MOVE":
+                        int index = json.getInt("index");
+                        String player = json.getString("player");
+
+                        // Broadcast the move to the opponent
+                        server.broadcastMove(index, player, this);
+                        break;
+
+                    case "YOUR_TURN":
+                        myTurn = true;
+                        break;
+
+                    default:
+                        // Handle unknown query
+                        System.out.println("Unknown query received: " + query);
+                        break;
                 }
             }
         } catch (IOException | org.json.JSONException ex) {
@@ -64,5 +98,13 @@ public class PlayersHandler implements Runnable {
 
     public void sendMessage(String message) {
         out.println(message);
+    }
+
+    public boolean isMyTurn() {
+        return myTurn;
+    }
+
+    public void setMyTurn(boolean myTurn) {
+        this.myTurn = myTurn;
     }
 }

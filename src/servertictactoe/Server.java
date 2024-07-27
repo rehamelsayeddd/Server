@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.json.JSONException;
@@ -15,8 +15,7 @@ public class Server {
 
     private static Server server;
     private ServerSocket serverSocket;
-    private Map<Integer, PlayersHandler> players = new HashMap<>();
-    private int currentPlayerId = 0;
+    private List<PlayersHandler> players = new ArrayList<>();
     private static final int PORT = 9081;
 
     private Server() {
@@ -37,15 +36,10 @@ public class Server {
             while (true) {
                 try {
                     Socket socket = serverSocket.accept();
-                    int playerId = currentPlayerId++;
-                    PlayersHandler playerHandler = new PlayersHandler(socket, playerId, this);
-                    players.put(playerId, playerHandler);
+                    PlayersHandler playerHandler = new PlayersHandler(socket, this);
+                    players.add(playerHandler);
                     new Thread(playerHandler).start();
-
-                    if (players.size() == 2) {
-                        // Notify players that the game has started
-                        notifyPlayers("Game Started");
-                    }
+                    checkAndPairPlayers();
                 } catch (IOException ex) {
                     Logger.getLogger(Server.class.getName()).log(Level.SEVERE, "Error accepting client connection", ex);
                 }
@@ -55,30 +49,61 @@ public class Server {
         }
     }
 
-    public synchronized void broadcastMove(int index, String player) {
+    private void checkAndPairPlayers() {
+        // Pair players
+        if (players.size() % 2 == 0) {
+            int lastIndex = players.size() - 1;
+            PlayersHandler player1 = players.get(lastIndex - 1);
+            PlayersHandler player2 = players.get(lastIndex);
+
+            player1.setOpponent(player2);
+            player2.setOpponent(player1);
+
+            // Notify players that the game has started
+            notifyPlayers("Game Started", player1, player2);
+
+            // Notify player1 that it's their turn
+            notifyPlayerTurn(player1);
+        }
+    }
+
+    public synchronized void broadcastMove(int index, String player, PlayersHandler sender) {
         try {
             JSONObject move = new JSONObject();
             move.put("query", "MOVE");
             move.put("index", index);
             move.put("player", player);
-            
-            // Send move to all connected players
-            for (PlayersHandler playerHandler : players.values()) {
-                playerHandler.sendMessage(move.toString());
+
+            if (sender.getOpponent() != null) {
+                sender.getOpponent().sendMessage(move.toString());
             }
+
+            // Notify the next player to make a move
+            notifyPlayerTurn(sender.getOpponent());
         } catch (JSONException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public synchronized void notifyPlayers(String message) {
+    public synchronized void notifyPlayers(String message, PlayersHandler player1, PlayersHandler player2) {
         try {
             JSONObject notification = new JSONObject();
             notification.put("query", message);
-            
-            // Notify all players
-            for (PlayersHandler playerHandler : players.values()) {
-                playerHandler.sendMessage(notification.toString());
+
+            player1.sendMessage(notification.toString());
+            player2.sendMessage(notification.toString());
+        } catch (JSONException ex) {
+            Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public synchronized void notifyPlayerTurn(PlayersHandler player) {
+        try {
+            if (player != null) {
+                JSONObject turnNotification = new JSONObject();
+                turnNotification.put("query", "YOUR_TURN");
+                turnNotification.put("symbol", player.getPlayerSymbol());
+                player.sendMessage(turnNotification.toString());
             }
         } catch (JSONException ex) {
             Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
