@@ -126,6 +126,7 @@ public class PlayersHandler extends Thread {
             String username = jsonObject.getString("username");
             String email = jsonObject.getString("email");
             String password = jsonObject.getString("password");
+
             System.out.println("SignUp Request - Username: " + username + ", Email: " + email);
             TicTacToeDataBase tic = TicTacToeDataBase.getInstance();
             tic.SignUp(email, username, password);
