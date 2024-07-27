@@ -36,7 +36,7 @@ public class Server {
     
     public void initServer() {
         try {
-            serverSocket = new ServerSocket(9081);
+            serverSocket = new ServerSocket(5005);
             System.out.println("Server IP: " + Inet4Address.getLocalHost().getHostAddress());
             
             listener = new Thread(() -> {
@@ -57,4 +57,3 @@ public class Server {
     }
     
 }
- 

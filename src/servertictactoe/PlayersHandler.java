@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 public class PlayersHandler extends Thread {
@@ -45,78 +46,37 @@ public class PlayersHandler extends Thread {
         while (currentSocket.isConnected()) {
             try {
                 clientData = br.readLine();
-                System.out.println("Received: " + clientData);
+                System.out.println("Received from client: " + clientData);
                 if (clientData != null) {
-                    // Tokenize using "####" as delimiter
-                    token = new StringTokenizer(clientData, "####");
-                    if (token.hasMoreTokens()) {
-                        query = token.nextToken();
-                        switch (query) {
-                            case "SignIn":
-                                ps.println("SignIn response");
-                                System.out.println("SignIn");
+                    JSONObject json = new JSONObject(clientData);
+                    String query = json.optString("query");
+                    switch (query) {
+                        
+                         case "SignUp":
+                                handleSignUp(clientData);
                                 break;
-                            case "SignUp":
-                                handleSignUp(token.nextToken());
-                                break;
-                            case "playerlist":
-                                ps.println("playerlist response");
-                                System.out.println("playerlist");
-                                break;
-                            case "request":
-                                ps.println("request response");
-                                System.out.println("request");
-                                break;
-                            case "accept":
-                                ps.println("accept response");
-                                System.out.println("accept");
-                                break;
-                            case "decline":
-                                ps.println("decline response");
-                                System.out.println("decline");
-                                break;
-                            case "withdraw":
-                                ps.println("withdraw response");
-                                System.out.println("withdraw");
-                                break;
-                            case "gameTic":
-                                ps.println("gameTic response");
-                                System.out.println("gameTic");
-                                break;
-                            case "finishgameTic":
-                                ps.println("finishgameTic response");
-                                System.out.println("finishgameTic");
-                                break;
-                            case "updateScore":
-                                ps.println("updateScore response");
-                                System.out.println("updateScore");
-                                break;
-                            case "available":
-                                ps.println("available response");
-                                System.out.println("available");
-                                break;
-                            case "logout":
-                                ps.println("logout response");
-                                System.out.println("logout");
-                                break;
-                            default:
-                                ps.println("Unknown query");
-                                System.out.println("Unknown query: " + query);
-                                break;
-                        }
-                    } else {
-                        ps.println("Invalid input format");
-                        System.out.println("Invalid input format");
+                        
+                        default:
+                            JSONObject unknownQueryResponse = new JSONObject();
+                            unknownQueryResponse.put("response", "Unknown query");
+                            ps.println(unknownQueryResponse.toString());
+                            System.out.println("Unknown query");
+                            break;
                     }
                 }
             } catch (IOException ex) {
                 System.out.println("Closing connection");
-                this.stop();
+                try {
+                    currentSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                break;
+            } catch (JSONException j) {
+                j.printStackTrace();
             }
         }
-        if (currentSocket.isClosed()) {
-            System.out.println("Connection closed");
-        }
+       
     }
 
     private void handleSignUp(String jsonData) {
