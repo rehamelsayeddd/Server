@@ -129,6 +129,18 @@ public class PlayersHandler extends Thread {
             System.out.println("SignUp Request - Username: " + username + ", Email: " + email);
             TicTacToeDataBase tic = TicTacToeDataBase.getInstance();
             tic.SignUp(email, username, password);
+
+            // Print for debugging
+            System.out.println("SignUp Request - Username: " + username + ", Email: " + email);
+
+            // Use the singleton instance of TicTacToeDataBase
+            TicTacToeDataBase tico = TicTacToeDataBase.getInstance();
+
+            // Sign up the user
+            tic.SignUp(email, username, password);
+
+            // Send a response to the client
+
             ps.println("SignUp response");
             System.out.println("SignUp");
 
