@@ -290,4 +290,12 @@ public class TicTacToeDataBase {
         }
         return false;
     }
+
+    public void removeUser(String username) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    public void addUser(String username) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 }
